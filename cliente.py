@@ -1,74 +1,46 @@
 import socket
-import os
-import shutil
 
-#configuracion del servidor host 0.0.0.0 esta a la espera de señales
-HOST= '0.0.0.0'
-PORT= 5000
-Directorio_Entrada='/home/loki/servidor_archivos/entrada/'
-Directorio_Procesados='/home/loki/servidor_archivos/procesados/'
+# Configuración del cliente
+HOST = '127.0.0.1'
+PORT = 5000
 
+# Crear socket
+cliente = socket.socket()
+cliente.connect((HOST, PORT))
 
-servidor = socket.socket()
+# Enviar solicitud para listar archivos
+cliente.send("listar archivos".encode())
 
-# Asociar a una IP y puerto con bind
-servidor.bind(('0.0.0.0', 5000))
-
-# Escuchar conexiones
-servidor.listen(1)
-print("Esperando conexión...")
-
-# Aceptar una conexión
-conn, addr = servidor.accept()
-print(f"Conectado con {addr}")
-
-# Recibir mensaje
-mensaje = conn.recv(1024).decode()
-print("Cliente dijo:", mensaje)
-
-#si recibe el mensaje de listar archivos , lo hara en el directorio entrada
-if mensaje.lower() == 'listar archivos':
-    try:
-        archivos=os.listdir(Directorio_Entrada)
-        if archivos:
-            respuesta = "\n".join(archivos) + "\n"
-        else:
-            respuesta="no hay archivos en el directorio de entrada"
-    except FileNotFoundError:
-        respuesta = f"El directorio '{Directorio_Entrada}' no existe."
-    
-    conn.send(respuesta.encode())
+# Recibir lista de archivos
+respuesta = cliente.recv(1024).decode()
+print("Archivos en el directorio 'entrada/':")
+print(respuesta)
 
 
-instruccion = conn.recv(1024).decode().strip()
-print(f"Instrucción recibida: {instruccion}")
+print("¿Qué deseas hacer?")
+print("1. Copiar un archivo a 'procesados/'")
+print("2. Leer el contenido de un archivo")
 
-if instruccion.startswith("copiar "):
-    archivo_a_copiar = instruccion[7:]
-    ruta_origen = os.path.join(Directorio_Entrada, archivo_a_copiar)
-    ruta_destino = os.path.join(Directorio_Procesados, archivo_a_copiar)
+opcion = input("Escribe 1 o 2: ")
 
-    if os.path.exists(ruta_origen):
-            shutil.copy(ruta_origen, ruta_destino)
-            conn.send(f"Archivo '{archivo_a_copiar}' copiado correctamente a 'procesados/'".encode())
-    else:
-            conn.send(f"El archivo '{archivo_a_copiar}' no existe en 'entrada/'".encode())
+if opcion == "1":
+    archivo_a_copiar = input("Introduce el nombre del archivo que deseas copiar: ")
+    instruccion = f"copiar {archivo_a_copiar}"
+elif opcion == "2":
+    archivo_a_leer = input("Introduce el nombre del archivo que deseas leer: ")
+    instruccion = f"leer {archivo_a_leer}"
+else:
+    print("Opción no válida.")
+    cliente.close()
+    exit()
 
-elif instruccion.startswith("leer "):
-    archivo_a_leer = instruccion[5:]
-    ruta_archivo = os.path.join(Directorio_Entrada, archivo_a_leer)
+# Enviar la instrucción al servidor
+cliente.send(instruccion.encode())
 
-    if os.path.exists(ruta_archivo):
-        with open(ruta_archivo, 'r') as f:
-            contenido = f.read()
-        conn.send(contenido.encode())
-    else:
-        conn.send(f"El archivo '{archivo_a_leer}' no existe en 'entrada/'".encode())
+# Recibir la respuesta del servidor
+respuesta_final = cliente.recv(4096).decode()  
+print("Respuesta del servidor:")
+print(respuesta_final)
 
-
-
-
-conn.close()
-servidor.close()
-
-
+# Cerrar conexión
+cliente.close()
