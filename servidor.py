@@ -40,17 +40,31 @@ if mensaje.lower() == 'listar archivos':
     conn.send(respuesta.encode())
 
 
-archivoCopiar = conn.recv(1024).decode().strip()
-print(f"El cliente pidió copiar el archivo: {archivoCopiar}")
+instruccion = conn.recv(1024).decode().strip()
+print(f"Instrucción recibida: {instruccion}")
 
-ruta_origen = os.path.join(Directorio_Entrada, archivoCopiar)
-ruta_destino = os.path.join(Directorio_Procesados, archivoCopiar)
+if instruccion.startswith("copiar "):
+    archivo_a_copiar = instruccion[7:]
+    ruta_origen = os.path.join(Directorio_Entrada, archivo_a_copiar)
+    ruta_destino = os.path.join(Directorio_Procesados, archivo_a_copiar)
 
-if os.path.exists(ruta_origen):
-    shutil.copy(ruta_origen, ruta_destino)
-    conn.send(f"Archivo '{archivoCopiar}' copiado correctamente a 'procesados/'".encode())
-else:
-    conn.send(f"El archivo '{archivoCopiar}' no existe en 'entrada/'".encode())
+    if os.path.exists(ruta_origen):
+            shutil.copy(ruta_origen, ruta_destino)
+            conn.send(f"Archivo '{archivo_a_copiar}' copiado correctamente a 'procesados/'".encode())
+    else:
+            conn.send(f"El archivo '{archivo_a_copiar}' no existe en 'entrada/'".encode())
+
+elif instruccion.startswith("leer "):
+    archivo_a_leer = instruccion[5:]
+    ruta_archivo = os.path.join(Directorio_Entrada, archivo_a_leer)
+
+    if os.path.exists(ruta_archivo):
+        with open(ruta_archivo, 'r') as f:
+            contenido = f.read()
+        conn.send(contenido.encode())
+    else:
+        conn.send(f"El archivo '{archivo_a_leer}' no existe en 'entrada/'".encode())
+
 
 
 
