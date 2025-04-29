@@ -4,7 +4,7 @@ import os
 #Configuracion del cliente:
 HOST = '127.0.0.1'
 PORT = 5000
-BUFFER_SIZE = 4096 
+BUFFER_SIZE = 4096
 
 #-------Configurar socket cliente-----------------------------
 def conectar_servidor():
@@ -77,6 +77,21 @@ def ver_logs(cliente):
     print("Logs del servidor:")
     print(respuesta)
 
+#---------------Copiar archivo remoto a procesados--------------------
+def copiar_archivo_remoto(cliente):
+    nombre_archivo = input("Introduce el nombre del archivo remoto a copiar: ").strip()
+    cliente.send(f"copiar {nombre_archivo}".encode('utf-8'))
+    respuesta = cliente.recv(BUFFER_SIZE).decode('utf-8')
+    print(respuesta)
+
+#---------------Leer el contenido de un archivo remoto-----------------------------
+def leer_archivo_remoto(cliente):
+    nombre_archivo = input("Introduce el nombre del archivo remoto a leer: ").strip()
+    cliente.send(f"leer {nombre_archivo}".encode('utf-8'))
+    contenido = cliente.recv(BUFFER_SIZE).decode('utf-8')
+    print("\nContenido del archivo:")
+    print(contenido)
+
 #----------------Interfaz menu-----------------------------
 def menu():
     while True:
@@ -85,9 +100,11 @@ def menu():
         print("2.- [Subir archivo]")
         print("3.- [Descargar archivo]")
         print("4.- [Ver logs]")
-        print("5.- [Salir]")
+        print("5.- [Copiar archivo remoto]")
+        print("6.- [Leer archivo remoto]")
+        print("7.- [Salir]")
         print("\n----------------------")
-        
+
         opcion= input("Elige una opcion: ").strip()
         cliente= conectar_servidor()
 #--------------------------------------
@@ -100,6 +117,10 @@ def menu():
         elif opcion == "4":
             ver_logs(cliente)
         elif opcion == "5":
+            copiar_archivo_remoto(cliente)
+        elif opcion == "6":
+            leer_archivo_remoto(cliente)
+        elif opcion == "7":
             print("Saliendo...")
             cliente.close()
             break
