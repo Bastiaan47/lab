@@ -1,50 +1,49 @@
 import os
-import shutil
 import threading
 import time
+from threading import Semaphore, Lock
+import shutil
 
 # Rutas
-Directorio_Entrada = '/home/hmarin/servidor_archivos/entrada/'
-Directorio_Procesados = '/home/hmarin/servidor_archivos/procesados/'
-Directorio_Logs = '/home/hmarin/servidor_archivos/logs/'
-Log_File = os.path.join(Directorio_Logs, 'registro.log')
+Directorio_Entrada = '/home/loki/servidor_archivos/entrada/'
+Directorio_Procesados = '/home/loki/servidor_archivos/procesados/'
+Archivo_Logs = '/home/loki/servidor_archivos/logs/registro.log'
 
-# Lock para sincronizar el acceso al registro.log
-log_lock = threading.Lock()
+# Sincronización
+lock_log = Lock()
+semaforo = Semaphore()
+
+# Guardar nombres de archivos existentes al arrancar
+archivos_existentes = set(os.listdir(Directorio_Entrada))
+
+def escribir_log(mensaje):
+    with lock_log:
+        with open(Archivo_Logs, 'a') as f:
+            f.write(mensaje + '\n')
 
 def procesar_archivo(nombre_archivo):
-    origen = os.path.join(Directorio_Entrada, nombre_archivo)
-    destino = os.path.join(Directorio_Procesados, nombre_archivo)
-    
-    # Verificar si el archivo aún existe (podría haber sido movido)
-    if not os.path.exists(origen):
-        return
+    ruta_origen = os.path.join(Directorio_Entrada, nombre_archivo)
+    ruta_destino = os.path.join(Directorio_Procesados, nombre_archivo)
 
-    # Mover el archivo a procesados
-    shutil.move(origen, destino)
-
-    # Registrar la operación
-    with log_lock:
-        with open(Log_File, 'a') as log:
-            log.write(f"{time.ctime()}: Archivo '{nombre_archivo}' movido a 'procesados/'\n")
-    print(f"Procesado: {nombre_archivo}")
+    with semaforo:
+        try:
+            if os.path.exists(ruta_origen):
+                shutil.move(ruta_origen, ruta_destino)
+                escribir_log(f"[Demonio] Archivo '{nombre_archivo}' procesado y movido a 'procesados/'.")
+        except Exception as e:
+            escribir_log(f"[Demonio] Error procesando '{nombre_archivo}': {e}")
 
 def demonio():
-    print("Demonio iniciado, monitoreando 'entrada/' cada 10 segundos...")
-    archivos_procesados = set()
-
+    print("[Demonio] Iniciado. Monitoreando archivos nuevos cada 10 segundos...")
     while True:
+        time.sleep(10)
         archivos_actuales = set(os.listdir(Directorio_Entrada))
-
-        nuevos_archivos = archivos_actuales - archivos_procesados
+        nuevos_archivos = archivos_actuales - archivos_existentes
 
         for archivo in nuevos_archivos:
             t = threading.Thread(target=procesar_archivo, args=(archivo,))
             t.start()
-
-        archivos_procesados = archivos_actuales
-
-        time.sleep(10)
+            archivos_existentes.add(archivo)
 
 if __name__ == "__main__":
     demonio()
