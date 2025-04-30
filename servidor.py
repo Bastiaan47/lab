@@ -1,42 +1,31 @@
 import socket
 import os
 import shutil
+import threading
 
-#configuracion del servidor host 0.0.0.0 esta a la espera de señales
 HOST = '0.0.0.0'
 PORT = 5000
-Directorio_Entrada = '/home/batman/Laboratorio/entrada/'
-Directorio_Procesados = '/home/batman/Laboratorio/procesados/'
-Archivo_Logs= '/home/batman/Laboratorio/logs.txt'
-BUFFER_SIZE= 4096 #tamaño de bytes para transferencias por socket
+Directorio_Entrada = '/home/loki/servidor_archivos/entrada/'
+Directorio_Procesados = '/home/loki/servidor_archivos/procesados/'
+Archivo_Logs = '/home/loki/servidor_archivos/logs/registro.log'
+BUFFER_SIZE = 4096
 
-#funcion para agregar mensajes al archivo de logs
 def escribir_log(mensaje):
     with open(Archivo_Logs, 'a') as f:
         f.write(mensaje + "\n")
 
-#crear socket
-servidor = socket.socket()
-servidor.bind((HOST, PORT))
-servidor.listen(1)
-print("Esperando conexión...")
-
-#-------------Manejar conexiones entrantes, procesa solicitudes del cliente y maneja errores---------------------
-while True:
-    conn, addr = servidor.accept()
-    print(f"Conectado con {addr}")
+# ---------------- Función que maneja cada cliente ---------------- #
+def manejar_cliente(conn, addr):
+    print(f"[+] Cliente conectado: {addr}")
 
     try:
         mensaje = conn.recv(BUFFER_SIZE).decode('utf-8')
-        print(f"Mensaje recibido: {mensaje}")
+        print(f"[{addr}] Mensaje recibido: {mensaje}")
 
         if mensaje.lower() == 'listar archivos':
             try:
                 archivos = os.listdir(Directorio_Entrada)
-                if archivos:
-                    respuesta = "\n".join(archivos) + "\n"
-                else:
-                    respuesta = "No hay archivos en el directorio de entrada."
+                respuesta = "\n".join(archivos) if archivos else "No hay archivos en el directorio de entrada."
             except FileNotFoundError:
                 respuesta = f"El directorio '{Directorio_Entrada}' no existe."
             conn.send(respuesta.encode('utf-8'))
@@ -80,7 +69,7 @@ while True:
                         f.write(datos)
                         break
                     f.write(datos)
-            escribir_log(f"[{addr}] Subio archivo '{nombre_archivo}'")
+            escribir_log(f"[{addr}] Subió archivo '{nombre_archivo}'")
             print(f"Archivo '{nombre_archivo}' recibido y guardado.")
 
         elif mensaje.startswith("descargar "):
@@ -96,7 +85,7 @@ while True:
                             break
                         conn.sendall(datos)
                 conn.send(b"_fin_archivo_")
-                escribir_log(f"[{addr}] Descargo archivo '{nombre_archivo}'")
+                escribir_log(f"[{addr}] Descargó archivo '{nombre_archivo}'")
             else:
                 conn.send("archivo no encontrado".encode('utf-8'))
 
@@ -105,17 +94,33 @@ while True:
                 with open(Archivo_Logs, 'r') as f:
                     contenido_logs = f.read()
                 if not contenido_logs:
-                    contenido_logs = "El archivo de logs está vacio."
+                    contenido_logs = "El archivo de logs está vacío."
                 conn.send(contenido_logs.encode('utf-8'))
             else:
                 conn.send("El archivo de logs no existe.".encode('utf-8'))
-            escribir_log(f"[{addr}] Solicito ver logs")
+            escribir_log(f"[{addr}] Solicitó ver logs")
 
         else:
-            conn.send("Instruccion no reconocida.".encode('utf-8'))
+            conn.send("Instrucción no reconocida.".encode('utf-8'))
 
     except Exception as e:
-        print(f"Error durante la comunicación: {e}")
+        print(f"[{addr}] Error: {e}")
+    finally:
+        conn.close()
+        print(f"[-] Conexión con {addr} cerrada")
 
-    conn.close()
-    print("Conexión cerrada.")
+# ----------------- Servidor principal con hilo por cliente ---------------- #
+def main():
+    servidor = socket.socket()
+    servidor.bind((HOST, PORT))
+    servidor.listen(5)
+    print(f"Servidor escuchando en {HOST}:{PORT}...")
+
+    while True:
+        conn, addr = servidor.accept()
+        hilo = threading.Thread(target=manejar_cliente, args=(conn, addr))
+        hilo.start()
+
+if __name__ == "__main__":
+    main()
+
