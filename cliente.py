@@ -1,7 +1,7 @@
 import socket
 import os
 
-#Configuracion del cliente:
+# Configuración del cliente:
 HOST = '127.0.0.1'
 PORT = 5000
 BUFFER_SIZE = 4096
@@ -23,63 +23,66 @@ def listar_archivos(cliente):
     print("Archivos disponibles en el servidor:")
     print(respuesta)
 
-#--------------------Tansferir archivo del cliente al servidor---------------------
+#--------------------Transferir archivo del cliente al servidor---------------------
 def subir_archivo(cliente):
     ruta_local = input("Introduce la ruta del archivo a subir: ").strip()
     if not os.path.exists(ruta_local):
         print("El archivo no existe.")
         return
 
-    nombre_archivo= os.path.basename(ruta_local)
+    nombre_archivo = os.path.basename(ruta_local)
     cliente.send(f"subir {nombre_archivo}".encode('utf-8'))
 
-    #espera confirmacion del servidor
+    # Espera confirmación del servidor
     confirmacion = cliente.recv(BUFFER_SIZE).decode('utf-8')
     if confirmacion != "listo para recibir":
-        print("Error en la sincronizacion.")
+        print("Error en la sincronización.")
         return
 
     with open(ruta_local, 'rb') as f:
         while True:
-            datos= f.read(BUFFER_SIZE)
+            datos = f.read(BUFFER_SIZE)
             if not datos:
                 break
             cliente.sendall(datos)
-    cliente.send(b"_fin_archivo_")  #fin del envio
+    cliente.send(b"_fin_archivo_")  # Fin del envío
 
     print("Archivo Transferido Correctamente.")
 
-#------------Descargar archivos desde el sevidor al cliente--------------------------
+#------------Descargar archivos desde el servidor al cliente--------------------------
 def descargar_archivo(cliente):
-    nombre_archivo= input("Introduce el nombre del archivo a descargar: ").strip()
+    nombre_archivo = input("Introduce el nombre del archivo a descargar: ").strip()
     cliente.send(f"descargar {nombre_archivo}".encode('utf-8'))
 
-    #espera si el servidor dice que existe el archivo
-    respuesta= cliente.recv(BUFFER_SIZE).decode('utf-8')
+    # Espera si el servidor dice que existe el archivo
+    respuesta = cliente.recv(BUFFER_SIZE).decode('utf-8')
     if respuesta == "archivo no encontrado":
         print("El archivo no existe en el servidor.")
         return
     else:
-        with open(nombre_archivo, 'wb') as f:
+        # Ruta de descarga en la carpeta 'descargas/'
+        ruta_descarga = os.path.join("/home/loki/Downloads", nombre_archivo)
+
+        with open(ruta_descarga, 'wb') as f:
             while True:
-                datos= cliente.recv(BUFFER_SIZE)
+                datos = cliente.recv(BUFFER_SIZE)
                 if b"_fin_archivo_" in datos:
-                    datos= datos.replace(b"_fin_archivo_", b"")
+                    datos = datos.replace(b"_fin_archivo_", b"")
                     f.write(datos)
                     break
                 f.write(datos)
-        print(f"Archivo '{nombre_archivo}' Descargado Correctamente.")
+        print(f"Archivo '{nombre_archivo}' Descargado Correctamente en 'Downloads/{nombre_archivo}'.")
 
 #---------------Mostrar historial------------------------------------
 def ver_logs(cliente):
     cliente.send("ver logs".encode('utf-8'))
-    respuesta= cliente.recv(BUFFER_SIZE).decode('utf-8')
+    respuesta = cliente.recv(BUFFER_SIZE).decode('utf-8')
     print("Logs del servidor:")
     print(respuesta)
 
 #---------------Copiar archivo remoto a procesados--------------------
 def copiar_archivo_remoto(cliente):
-    nombre_archivo = input("Introduce el nombre del archivo remoto a copiar: ").strip()
+    nombre_archivo = input("Introduce el nombre del archivo a copiar en el directorio procesados: ").strip()
     cliente.send(f"copiar {nombre_archivo}".encode('utf-8'))
     respuesta = cliente.recv(BUFFER_SIZE).decode('utf-8')
     print(respuesta)
@@ -92,22 +95,22 @@ def leer_archivo_remoto(cliente):
     print("\nContenido del archivo:")
     print(contenido)
 
-#----------------Interfaz menu-----------------------------
+#----------------Interfaz menú-----------------------------
 def menu():
     while True:
-        print("\n------ Opciones ------")
-        print("1.- [Listar archivos]")
-        print("2.- [Subir archivo]")
-        print("3.- [Descargar archivo]")
-        print("4.- [Ver logs]")
-        print("5.- [Copiar archivo remoto]")
-        print("6.- [Leer archivo remoto]")
-        print("7.- [Salir]")
-        print("\n----------------------")
+        print("\n<<<<<<<< MENU >>>>>>>>>")
+        print("1.- Listar archivos del directorio entrada")
+        print("2.- Subir archivo al directorio entrada")
+        print("3.- Descargar archivo")
+        print("4.- Ver logs")
+        print("5.- Copiar archivo al directorio procesados")
+        print("6.- Leer archivo remoto")
+        print("7.- Salir y cerrar conexion")
+        print("\n<<<<<<<<<<<>>>>>>>>>>>>>\n")
 
-        opcion= input("Elige una opcion: ").strip()
-        cliente= conectar_servidor()
-#--------------------------------------
+        opcion = input("Elige una opción: ").strip()
+        cliente = conectar_servidor()
+
         if opcion == "1":
             listar_archivos(cliente)
         elif opcion == "2":
@@ -125,8 +128,8 @@ def menu():
             cliente.close()
             break
         else:
-            print("Opcion inválida.")
-#---------------------------------------
+            print("Opción inválida.")
+        
         cliente.close()
 
 if __name__ == "__main__":
